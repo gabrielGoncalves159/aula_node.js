@@ -1,39 +1,51 @@
 const http = require('http');
+const fsPromise = require('fs').promises;
+const path = require('path');
+
 const server = http.createServer();
 
+function getBodyFunction(req) {
+    return new Promise((resolve, reject) => {
+        const body = [];
+        req.on('data', chunk => {
+            body.push(chunk);
+        });
+        req.on('error', err => {
+            reject(err);
+        });
+        req.on('end', () => {
+            const bodyAsStr = (
+                Buffer
+                    .concat(body)
+                    .toString()
+            );
+            resolve(bodyAsStr);
+        });
+    });
+}
+
+
+
+function writeTxtFile(content) {
+    const fileName = `newBeer(${content}).txt`;
+    const filePath = path.join(__dirname, fileName)
+    fsPromise.writeFile(filePath, content, 'utf-8')
+        .then(() => console.log('New File'))
+        .catch(console.err);
+    return {
+      control: `${new Date().toISOString()}-${fileName}`,
+      fileName: fileName,
+      content,
+    };
+}
+
 server.on('request', async (req, res) => {
-    const { method, url } = req;
-
-    if(method === 'POST' && url === '/json') {
-
-        const body = await enviarValor(req);
+    if (req.method === 'POST') {
+        const body = await getBodyFunction(req);
+        const writeBody = await writeTxtFile(body);
         res.writeHead(201, { 'Content-Type': 'application/json' });
-        const objetoTxtRecebido = { texto: body };
-        res.end(JSON.stringify(objetoTxtRecebido));
-
+        res.end(JSON.stringify(writeBody));
     }
 });
 
-function enviarValor(req) {
-    return new Promise((resolve, reject) => {
-
-         const body = [];
-         req.on('data', chunk => {
-             body.push(chunk);
-          });
-         req.on('error', (err) => {
-             reject(`Erro ao processar o body, ${err}`);
-          });
-          req.on('end', () => {
-             const bodyAsStr = (
-                 Buffer
-                      .concat(buffers)
-                      .toString()
-            );
-             resolve(bodyAsStr);
-          });
-      });
-
-    }
-
-server.listen('caminho: http://localhost:8080');
+server.listen(8080);
